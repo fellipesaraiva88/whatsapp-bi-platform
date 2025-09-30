@@ -20,6 +20,29 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Database test endpoint
+app.get('/api/db/test', async (req, res) => {
+  try {
+    const result = await databaseService.query('SELECT NOW() as current_time, version() as pg_version');
+    res.json({
+      success: true,
+      connected: true,
+      currentTime: result.rows[0].current_time,
+      version: result.rows[0].pg_version,
+      message: 'Database connection successful'
+    });
+  } catch (error) {
+    console.error('DB test error:', error);
+    res.status(500).json({
+      success: false,
+      connected: false,
+      error: error.message,
+      code: error.code,
+      details: error.stack
+    });
+  }
+});
+
 // Database migration endpoint
 app.post('/api/migrate', async (req, res) => {
   try {
@@ -32,17 +55,30 @@ app.post('/api/migrate', async (req, res) => {
     const schemaPath = path.join(__dirname, 'config', 'schema-postgres.sql');
 
     const schema = await fs.readFile(schemaPath, 'utf-8');
-    await databaseService.query(schema);
 
-    res.json({
-      success: true,
-      message: 'Database schema initialized successfully',
-      timestamp: new Date().toISOString()
-    });
+    // Execute schema in a transaction
+    const client = await databaseService.getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query(schema);
+      await client.query('COMMIT');
+
+      res.json({
+        success: true,
+        message: 'Database schema initialized successfully',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error('Migration error:', error);
     res.status(500).json({
       error: error.message,
+      code: error.code,
       details: error.stack
     });
   }
