@@ -20,6 +20,34 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Database migration endpoint
+app.post('/api/migrate', async (req, res) => {
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const { fileURLToPath } = await import('url');
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const schemaPath = path.join(__dirname, 'config', 'schema-postgres.sql');
+
+    const schema = await fs.readFile(schemaPath, 'utf-8');
+    await databaseService.query(schema);
+
+    res.json({
+      success: true,
+      message: 'Database schema initialized successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Migration error:', error);
+    res.status(500).json({
+      error: error.message,
+      details: error.stack
+    });
+  }
+});
+
 // ===== SYNC ENDPOINTS =====
 
 // Sincronizar contatos
