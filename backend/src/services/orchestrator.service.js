@@ -1,6 +1,6 @@
 import whatsappService from './whatsapp.service.js';
 import aiService from './ai.service.js';
-import supabaseService from './supabase.service.js';
+import databaseService from './database.service.js';
 
 /**
  * Orchestrator Service
@@ -21,7 +21,7 @@ class OrchestratorService {
       const contacts = await whatsappService.searchContacts('');
       
       for (const contact of contacts) {
-        await supabaseService.upsertContact({
+        await databaseService.upsertContact({
           phone_number: contact.phone_number,
           jid: contact.jid,
           name: contact.name || contact.phone_number,
@@ -53,7 +53,7 @@ class OrchestratorService {
 
       for (const msg of messages) {
         try {
-          await supabaseService.insertMessage({
+          await databaseService.insertMessage({
             message_id: msg.id,
             chat_jid: msg.chat_jid,
             sender_jid: msg.sender_jid,
@@ -88,7 +88,7 @@ class OrchestratorService {
       console.log(`🤖 Analisando contato ${contact_jid}...`);
 
       // 1. Buscar mensagens do banco
-      const messages = await supabaseService.getMessages(contact_jid, 50);
+      const messages = await databaseService.getMessages(contact_jid, 50);
 
       if (messages.length === 0) {
         return { error: 'Nenhuma mensagem encontrada para análise' };
@@ -98,7 +98,7 @@ class OrchestratorService {
       const analysis = await aiService.analyzeConversation(messages);
 
       // 3. Salvar análise
-      await supabaseService.saveAnalysis({
+      await databaseService.saveAnalysis({
         contact_jid,
         chat_jid: contact_jid,
         analysis_type: 'full_conversation',
@@ -116,19 +116,19 @@ class OrchestratorService {
       });
 
       // 4. Categorizar contato
-      const contact = await supabaseService.getContact(contact_jid);
+      const contact = await databaseService.getContact(contact_jid);
       const myMessages = messages.filter(m => m.from_me).map(m => m.content);
       
       // Se temos mensagens minhas, aprender estilo
       if (myMessages.length >= 5) {
         const style = await aiService.learnConversationStyle(myMessages);
-        await supabaseService.saveConversationStyle(contact_jid, style);
+        await databaseService.saveConversationStyle(contact_jid, style);
       }
 
       const categorization = await aiService.categorizeContact(contact, messages);
 
       // 5. Atualizar contato com categorização
-      await supabaseService.upsertContact({
+      await databaseService.upsertContact({
         jid: contact_jid,
         phone_number: contact.phone_number,
         name: contact.name,
@@ -142,7 +142,7 @@ class OrchestratorService {
 
       // 6. Atualizar pipeline
       if (analysis.sales_stage) {
-        await supabaseService.updatePipelineStage(
+        await databaseService.updatePipelineStage(
           contact_jid,
           analysis.sales_stage,
           null // value pode ser inferido depois
@@ -170,10 +170,10 @@ class OrchestratorService {
       console.log(`💡 Gerando sugestão de interação para ${contact_jid}...`);
 
       // 1. Buscar dados do contato
-      const contact = await supabaseService.getContact(contact_jid);
+      const contact = await databaseService.getContact(contact_jid);
 
       // 2. Buscar última análise
-      const analysis = await supabaseService.getLatestAnalysis(contact_jid);
+      const analysis = await databaseService.getLatestAnalysis(contact_jid);
 
       if (!analysis) {
         return { error: 'Execute analyzeContact primeiro' };
@@ -183,7 +183,7 @@ class OrchestratorService {
       const suggestion = await aiService.suggestNextInteraction(contact, analysis);
 
       // 4. Salvar sugestão
-      await supabaseService.logInteraction({
+      await databaseService.logInteraction({
         contact_jid,
         interaction_type: 'note',
         direction: 'outbound',
@@ -209,10 +209,10 @@ class OrchestratorService {
       console.log(`📤 Preparando mensagem humanizada para ${recipient_jid}...`);
 
       // 1. Buscar histórico de conversa
-      const messages = await supabaseService.getMessages(recipient_jid, 20);
+      const messages = await databaseService.getMessages(recipient_jid, 20);
 
       // 2. Buscar estilo de conversa aprendido
-      const userStyle = await supabaseService.getConversationStyle(recipient_jid);
+      const userStyle = await databaseService.getConversationStyle(recipient_jid);
 
       if (!userStyle) {
         return { error: 'Estilo de conversa não aprendido. Execute analyzeContact primeiro.' };
@@ -241,7 +241,7 @@ class OrchestratorService {
       );
 
       // 5. Registrar interação
-      await supabaseService.logInteraction({
+      await databaseService.logInteraction({
         contact_jid: recipient_jid,
         interaction_type: 'message',
         direction: 'outbound',

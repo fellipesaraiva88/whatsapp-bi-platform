@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import orchestratorService from './services/orchestrator.service.js';
-import supabaseService from './services/supabase.service.js';
+import databaseService from './services/database.service.js';
 import aiService from './services/ai.service.js';
 import whatsappService from './services/whatsapp.service.js';
 
@@ -64,7 +64,7 @@ app.get('/api/contacts', async (req, res) => {
     const filters = { customer_type, interest_level, limit: limit ? parseInt(limit) : 50 };
     if (tags) filters.tags = tags.split(',');
     
-    const contacts = await supabaseService.listContacts(filters);
+    const contacts = await databaseService.listContacts(filters);
     res.json(contacts);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -75,7 +75,7 @@ app.get('/api/contacts', async (req, res) => {
 app.get('/api/contacts/:jid', async (req, res) => {
   try {
     const { jid } = req.params;
-    const contact = await supabaseService.getContact(jid);
+    const contact = await databaseService.getContact(jid);
     res.json(contact);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -87,7 +87,7 @@ app.put('/api/contacts/:jid', async (req, res) => {
   try {
     const { jid } = req.params;
     const data = { ...req.body, jid };
-    const result = await supabaseService.upsertContact(data);
+    const result = await databaseService.upsertContact(data);
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -101,7 +101,7 @@ app.get('/api/messages/:chatJid', async (req, res) => {
   try {
     const { chatJid } = req.params;
     const { limit = 50 } = req.query;
-    const messages = await supabaseService.getMessages(chatJid, parseInt(limit));
+    const messages = await databaseService.getMessages(chatJid, parseInt(limit));
     res.json(messages);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -112,7 +112,7 @@ app.get('/api/messages/:chatJid', async (req, res) => {
 app.post('/api/messages/search', async (req, res) => {
   try {
     const { query, filters } = req.body;
-    const messages = await supabaseService.searchMessages(query, filters);
+    const messages = await databaseService.searchMessages(query, filters);
     res.json(messages);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -169,7 +169,7 @@ app.post('/api/ai/send-message', async (req, res) => {
 // Métricas do dashboard
 app.get('/api/dashboard/metrics', async (req, res) => {
   try {
-    const metrics = await supabaseService.getDashboardMetrics();
+    const metrics = await databaseService.getDashboardMetrics();
     res.json(metrics);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -179,7 +179,7 @@ app.get('/api/dashboard/metrics', async (req, res) => {
 // Pipeline
 app.get('/api/dashboard/pipeline', async (req, res) => {
   try {
-    const pipeline = await supabaseService.getPipeline();
+    const pipeline = await databaseService.getPipeline();
     res.json(pipeline);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -191,7 +191,7 @@ app.get('/api/interactions/:contactJid', async (req, res) => {
   try {
     const { contactJid } = req.params;
     const { limit = 50 } = req.query;
-    const interactions = await supabaseService.getContactInteractions(contactJid, parseInt(limit));
+    const interactions = await databaseService.getContactInteractions(contactJid, parseInt(limit));
     res.json(interactions);
   } catch (error) {
     res.status(500).json({ error: error.message });
